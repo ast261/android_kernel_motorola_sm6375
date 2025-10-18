@@ -7,7 +7,9 @@
 #include <linux/kallsyms.h>
 #include <linux/kernel.h>
 #include <linux/kprobes.h>
+#ifdef CONFIG_KSU_LSM_SECURITY_HOOKS
 #include <linux/lsm_hooks.h>
+#endif
 #include <linux/mm.h>
 #include <linux/nsproxy.h>
 #include <linux/path.h>
@@ -404,6 +406,18 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
 		if (arg4 &&
 		    copy_to_user(arg4, &version_flags, sizeof(version_flags))) {
 			pr_err("prctl reply error, cmd: %lu\n", arg2);
+		}
+		return 0;
+	}
+
+	if (arg2 == CMD_HOOK_MODE) {
+#ifdef CONFIG_KSU_KPROBES_HOOK
+		const char *mode = "Kprobes";
+#else
+		const char *mode = "Manual";
+#endif
+		if (copy_to_user((void __user *)arg3, mode, strlen(mode) + 1)) {
+			pr_info("hook: copy_to_user() failed\n");
 		}
 		return 0;
 	}
@@ -1105,6 +1119,7 @@ out_ksu_try_umount:
 #else
 	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
 	// filter the mountpoint whose target is `/data/adb`
+	ksu_try_umount("/odm", true, 0);
 	ksu_try_umount("/system", true, 0);
 	ksu_try_umount("/system_ext", true, 0);
 	ksu_try_umount("/vendor", true, 0);
@@ -1195,15 +1210,9 @@ __maybe_unused int ksu_kprobe_exit(void)
 	return 0;
 }
 
-static int ksu_task_prctl(int option, unsigned long arg2, unsigned long arg3,
-			  unsigned long arg4, unsigned long arg5)
-{
-	ksu_handle_prctl(option, arg2, arg3, arg4, arg5);
-	return -ENOSYS;
-}
-// kernel 4.4 and 4.9
+// kernel 4.9 and older
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI) || defined(CONFIG_KSU_ALLOWLIST_WORKAROUND)
-static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
+int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
 			      unsigned perm)
 {
 	if (init_session_keyring != NULL) {
@@ -1218,6 +1227,15 @@ static int ksu_key_permission(key_ref_t key_ref, const struct cred *cred,
 	return 0;
 }
 #endif
+
+#ifdef CONFIG_KSU_LSM_SECURITY_HOOKS
+static int ksu_task_prctl(int option, unsigned long arg2, unsigned long arg3,
+			  unsigned long arg4, unsigned long arg5)
+{
+	ksu_handle_prctl(option, arg2, arg3, arg4, arg5);
+	return -ENOSYS;
+}
+
 static int ksu_inode_rename(struct inode *old_inode, struct dentry *old_dentry,
 			    struct inode *new_inode, struct dentry *new_dentry)
 {
@@ -1416,16 +1434,21 @@ void __init ksu_lsm_hook_init(void)
 	}
 	smp_mb();
 }
-#endif
+#endif // MODULE
+#endif // CONFIG_KSU_LSM_SECURITY_HOOKS
 
 void __init ksu_core_init(void)
 {
+#ifdef CONFIG_KSU_LSM_SECURITY_HOOKS
 	ksu_lsm_hook_init();
+#else	
+	pr_info("ksu_core_init: LSM hooks not in use.\n");
+#endif
 }
 
 void ksu_core_exit(void)
 {
-#ifdef CONFIG_KSU_WITH_KPROBES
+#ifdef CONFIG_KSU_KPROBES_HOOK
 	pr_info("ksu_core_kprobe_exit\n");
 	// we dont use this now
 	// ksu_kprobe_exit();
