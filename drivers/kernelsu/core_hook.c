@@ -1015,6 +1015,7 @@ static void ksu_try_umount(const char *mnt, bool check_mnt, int flags)
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 void susfs_try_umount_all(uid_t uid) {
 	susfs_try_umount(uid);
+	/* For Legacy KSU only */
 	ksu_try_umount("/system", true, 0, uid);
 	ksu_try_umount("/system_ext", true, 0, uid);
 	ksu_try_umount("/vendor", true, 0, uid);
@@ -1029,6 +1030,10 @@ void susfs_try_umount_all(uid_t uid) {
 
 	// try umount hosts file
 	ksu_try_umount("/system/etc/hosts", false, MNT_DETACH, uid);
+
+	// try umount lsposed dex2oat bins
+	ksu_try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH, uid);
+	ksu_try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH, uid);
 }
 #endif
 
@@ -1130,12 +1135,11 @@ out_ksu_try_umount:
 
 	// try umount hosts file
 	ksu_try_umount("/system/etc/hosts", false, MNT_DETACH);
-#endif        
 
 	// try umount lsposed dex2oat bins
-	try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH);
-	try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH);
-
+	ksu_try_umount("/apex/com.android.art/bin/dex2oat64", false, MNT_DETACH);
+	ksu_try_umount("/apex/com.android.art/bin/dex2oat32", false, MNT_DETACH);
+#endif
 	return 0;
 }
 
