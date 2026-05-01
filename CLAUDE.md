@@ -9,8 +9,8 @@ Linux 5.4 kernel for the Motorola **miami** device (Moto G51 5G) based on the Qu
 ## Branch naming
 
 - `lineage-X.Y` — base LineageOS kernel branch
-- `lineage-X.Y-ksun` — + KernelSU (kernel root manager)
-- `lineage-X.Y-ksun-X.Y.Z-susfs-X.Y.Z` — + KernelSU + SusFS
+- `lineage-X.Y-ksun` — + KernelSU Next (kernel root manager)
+- `lineage-X.Y-ksun-X.Y.Z-susfs-X.Y.Z` — + KernelSU Next + SusFS
 
 ## Building
 
